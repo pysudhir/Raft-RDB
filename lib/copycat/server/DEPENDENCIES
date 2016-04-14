@@ -1,0 +1,10 @@
+Server specific dependencies:
+
+1. atomix/copycat/server (./copycat-server-1.0.0-SNAPSHOT.jar)
+<dependency>
+  <groupId>io.atomix.copycat</groupId>
+  <artifactId>copycat-server</artifactId>
+  <version>${project.version}</version>
+</dependency>
+
+####################################################################

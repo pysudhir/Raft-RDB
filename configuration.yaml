@@ -1,0 +1,41 @@
+ # Defines which nodes are used in the system and how to connect to them.
+# This element should only be referenced during the constructor's initial
+# setup.
+# All names must be unique.
+# No other nodes are known.
+# These names will be used for src and dest addresses for the Message
+# The local node’s name is included in this list
+configuration :
+  - name : Master
+    ip   : 128.237.134.244
+    port : 8080
+  - name : Server1
+    ip   : 128.237.134.244
+    port : 9001
+  - name : Server2
+    ip   : 128.237.134.244
+    port : 9002
+  # - name : Server3
+  #   ip   : 128.237.134.244
+  #   port : 9003
+  # - name : Server4
+  #   ip   : 128.237.134.244
+  #   port : 9004    
+  # - name : Server5
+  #   ip   : 128.237.134.244
+  #   port : 9005
+  # - name : Server6
+  #   ip   : 128.237.134.244
+  #   port : 9006
+  # - name : Server7
+  #   ip   : 128.237.134.244
+  #   port : 9007
+  # - name : Server8
+  #   ip   : 128.237.134.244
+  #   port : 9008
+  # - name : Server9
+  #   ip   : 128.237.134.244
+  #   port : 9009
+  # - name : Server10
+  #   ip   : 128.237.134.244
+  #   port : 9010

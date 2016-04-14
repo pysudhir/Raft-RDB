@@ -1,0 +1,19 @@
+Client specific dependencies:
+
+1. atomix/copycat/client (./copycat-client-1.0.0-SNAPSHOT.jar)
+<dependency>
+  <groupId>io.atomix.copycat</groupId>
+  <artifactId>copycat-client</artifactId>
+  <version>${project.version}</version>
+</dependency>
+
+####################################################################
+
+2. atomix/raftserver (../server/)
+<dependency>
+  <groupId>io.atomix.copycat</groupId>
+  <artifactId>copycat-value-state-machine-example</artifactId>
+  <version>${project.version}</version>
+</dependency>
+
+####################################################################
