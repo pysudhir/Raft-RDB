@@ -33,6 +33,7 @@ import io.atomix.catalyst.transport.NettyTransport;
 /* atomix/copycat imports - RAFT library */
 import io.atomix.copycat.server.CopycatServer;
 import io.atomix.copycat.server.storage.Storage;
+import io.atomix.copycat.client.*;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -41,52 +42,58 @@ import java.util.List;
 public class Server extends AbstractVerticle {
 	private final String configFile = "../configuration.yaml"; // The path of your YAML file.
 	private ParsedConfiguration result;
+	private boolean raftClientInitialized;
 
 	private CopycatClient raftClient = null;
 	private List<Address> raftServers = null;
 
 	private void handleGet(HttpServerRequest req, String query) {
-		raftClient.submit(new GetQuery(query)).thenAccept(result -> {
-			req.response().setStatusCode(200);
-			req.response().headers()
-			.add("Content-Length", String.valueOf(result.length()))
-			.add("Content-Type", "text/html; charset=UTF-8");
-			req.response().write(result);
-			req.response().end();
+		vertx.executeBlocking(future -> {
+			raftClient.submit(new GetQuery(query)).thenAccept(result -> {
+				req.response().setStatusCode(200);
+				req.response().headers()
+				.add("Content-Length", String.valueOf(result.toString().length()))
+				.add("Content-Type", "text/html; charset=UTF-8");
+				req.response().write(result.toString());
+				req.response().end();
+			});
+			future.complete();
+		}, res -> {
 		});
 	}
 
 	private void handlePut(HttpServerRequest req, String query) {
 		String key = query.substring(0, query.indexOf('='));
-		String value = query.substring(0, query.indexOf('='))
+		String value = query.substring(0, query.indexOf('='));
 
-		raftClient.submit(new SetCommand(key, value))->thenRun(() -> {
-			req.response().setStatusCode(200);
-			req.response().headers()
-			.add("Content-Length", String.valueOf(16))
-			.add("Content-Type", "text/html; charset=UTF-8");
-			req.response().write("write successful");
-			req.response().end();
-		});
-
-		/* // TODO: Ensure I can use CompletableFuture rather than executeBlocking
 		vertx.executeBlocking(future -> {
+			raftClient.submit(new SetCommand(key, value)).thenRun(() -> {
+				req.response().setStatusCode(200);
+				req.response().headers()
+				.add("Content-Length", String.valueOf(16))
+				.add("Content-Type", "text/html; charset=UTF-8");
+				req.response().write("write successful");
+				req.response().end();
+			});
 			future.complete();
 		}, res -> {
 		});
-		*/
 	}
 
 	private void handleDelete(HttpServerRequest req, String query) {
 		String key = query;
 
-		raftClient.submit(new DeleteCommand(key))->thenRun(() -> {
-			req.response().setStatusCode(200);
-			req.response().headers()
-			.add("Content-Length", String.valueOf(17))
-			.add("Content-Type", "text/html; charset=UTF-8");
+		vertx.executeBlocking(future -> {
+			raftClient.submit(new DeleteCommand(key)).thenRun(() -> {
+				req.response().setStatusCode(200);
+				req.response().headers()
+				.add("Content-Length", String.valueOf(17))
+				.add("Content-Type", "text/html; charset=UTF-8");
 			req.response().write("delete successful");
 			req.response().end();
+			});
+			future.complete();
+		}, res -> {
 		});
 	}
 
@@ -100,7 +107,18 @@ public class Server extends AbstractVerticle {
 		req.response().end();
 	}
 
+	private void handleUninitialized(HttpServerRequest req) {
+		req.response().setStatusCode(501); /* Bad Request */
+		req.response().headers()
+			.add("Content-Length", String.valueOf(21))
+			.add("Content-Type", "text/html; charset=UTF-8");
+
+		req.response().write("Internal server error");
+		req.response().end();
+	}
+
 	public void start() {
+		raftClientInitialized = false;
 	  	configure();
 		HttpServer server = vertx.createHttpServer();
 		server.requestHandler(new Handler<HttpServerRequest>() {
@@ -115,24 +133,30 @@ public class Server extends AbstractVerticle {
 				}
 
 				if(command.equals("")) {
-					return handleInvalidRequest(req);
+					handleInvalidReq(req);
+					return;
+				}
+
+				if(!raftClientInitialized) {
+					handleUninitialized(req);
+					return;
 				}
 
 				if(command.equalsIgnoreCase("get")) {
 					handleGet(req, query);
 				} else if (command.equalsIgnoreCase("put")) {
-					handlePut(req);
+					handlePut(req, query);
 				} else if (command.equalsIgnoreCase("delete")) {
-					handleDelete(req);
+					handleDelete(req, query);
 				} else {
-					handleInvalidRequest(req);
+					handleInvalidReq(req);
 				}
 			}
 		}).listen(8080);
 	}
 
 	private void configure() {
-		raftServers = ArrayList<>();
+		raftServers = new ArrayList<>();
 		/* Parse and extract server replicas */
 		try {
 			InputStream ios = new FileInputStream(new File(configFile));
@@ -142,22 +166,27 @@ public class Server extends AbstractVerticle {
 			for (User user : result.configuration) {
 				raftServers.add(new Address(user.ip, user.port));
 			}
-			assert (raftServers.size() % 2); /* Sanity check to ensure there are odd number of servers */
+			assert ((raftServers.size() % 2) == 0); /* Sanity check to ensure there are odd number of servers */
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
-		raftClient = CopycatClient.builder(raftServers).
+		vertx.executeBlocking(future -> {
+			raftClient = CopycatClient.builder(raftServers)
 			.withTransport(new NettyTransport())
 			.withConnectionStrategy(ConnectionStrategies.FIBONACCI_BACKOFF)
 			.withRecoveryStrategy(RecoveryStrategies.RECOVER)
 			.withServerSelectionStrategy(ServerSelectionStrategies.LEADER)
 			.build();
 
-		client.serializer().register(SetCommand.class, 1);
-		client.serializer().register(GetQuery.class, 2);
-		client.serializer().register(DeleteCommand.class, 3);
+			raftClient.serializer().register(SetCommand.class, 1);
+			raftClient.serializer().register(GetQuery.class, 2);
+			raftClient.serializer().register(DeleteCommand.class, 3);
 
-		client.connect().join();
+			raftClient.connect().join();
+			future.complete();
+		}, res -> {
+			raftClientInitialized = true;
+		});
 	}
 }

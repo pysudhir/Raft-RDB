@@ -7,14 +7,14 @@
 # The local node’s name is included in this list
 configuration :
   - name : Master
-    ip   : 127.0.0.1
-    port : 9999
-  # - name : Server1
-  #   ip   : 128.237.134.244
-  #   port : 9001
-  # - name : Server2
-  #   ip   : 128.237.134.244
-  #   port : 9002
+    ip   : 128.237.134.244
+    port : 8080
+  - name : Server1
+    ip   : 128.237.134.244
+    port : 9001
+  - name : Server2
+    ip   : 128.237.134.244
+    port : 9002
   # - name : Server3
   #   ip   : 128.237.134.244
   #   port : 9003
