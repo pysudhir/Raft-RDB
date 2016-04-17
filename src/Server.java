@@ -14,6 +14,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.concurrent.*;
 
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
@@ -49,14 +50,19 @@ public class Server extends AbstractVerticle {
 
 	private void handleGet(HttpServerRequest req, String query) {
 		vertx.executeBlocking(future -> {
-			raftClient.submit(new GetQuery(query)).thenAccept(result -> {
+			try {
+				String result = raftClient.submit(new GetQuery(query)).get().toString();	
 				req.response().setStatusCode(200);
 				req.response().headers()
 				.add("Content-Length", String.valueOf(result.toString().length()))
 				.add("Content-Type", "text/html; charset=UTF-8");
 				req.response().write(result.toString());
+				System.out.println("returning to client "+result.toString());
 				req.response().end();
-			});
+			} catch(Exception e) {
+				handleInvalidReq(req);
+			}
+			
 			future.complete();
 		}, res -> {
 		});
@@ -64,7 +70,7 @@ public class Server extends AbstractVerticle {
 
 	private void handlePut(HttpServerRequest req, String query) {
 		String key = query.substring(0, query.indexOf('='));
-		String value = query.substring(0, query.indexOf('='));
+		String value = query.substring(query.indexOf('=')+1);
 
 		vertx.executeBlocking(future -> {
 			raftClient.submit(new SetCommand(key, value)).thenRun(() -> {
@@ -151,6 +157,7 @@ public class Server extends AbstractVerticle {
 				} else {
 					handleInvalidReq(req);
 				}
+				System.out.println("command:"+command);
 			}
 		}).listen(8080);
 	}
@@ -187,6 +194,7 @@ public class Server extends AbstractVerticle {
 			future.complete();
 		}, res -> {
 			raftClientInitialized = true;
+			System.out.println("Raft client initialized");
 		});
 	}
 }
