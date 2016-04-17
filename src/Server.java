@@ -59,6 +59,7 @@ public class Server extends AbstractVerticle {
 				req.response().write(result.toString());
 				System.out.println("returning to client "+result.toString());
 				req.response().end();
+				req.netSocket().close();
 			} catch(Exception e) {
 				handleInvalidReq(req);
 			}
@@ -80,6 +81,7 @@ public class Server extends AbstractVerticle {
 				.add("Content-Type", "text/html; charset=UTF-8");
 				req.response().write("write successful");
 				req.response().end();
+				req.netSocket().close();
 			});
 			future.complete();
 		}, res -> {
@@ -97,6 +99,7 @@ public class Server extends AbstractVerticle {
 				.add("Content-Type", "text/html; charset=UTF-8");
 			req.response().write("delete successful");
 			req.response().end();
+			req.netSocket().close();
 			});
 			future.complete();
 		}, res -> {
@@ -111,6 +114,7 @@ public class Server extends AbstractVerticle {
 
 		req.response().write("Invalid request");
 		req.response().end();
+		req.netSocket().close();
 	}
 
 	private void handleUninitialized(HttpServerRequest req) {
@@ -121,6 +125,7 @@ public class Server extends AbstractVerticle {
 
 		req.response().write("Internal server error");
 		req.response().end();
+		req.netSocket().close();
 	}
 
 	public void start() {
@@ -157,7 +162,6 @@ public class Server extends AbstractVerticle {
 				} else {
 					handleInvalidReq(req);
 				}
-				System.out.println("command:"+command);
 			}
 		}).listen(8080);
 	}
